@@ -57,17 +57,21 @@ def _raw_get(raw_message: Any, key: str, default: Any = None) -> Any:
     return default
 
 
-def _is_aiocqhttp_request(event: AstrMessageEvent) -> bool:
+def _is_group_add_request(event: AstrMessageEvent) -> bool:
     if event.get_platform_name() != "aiocqhttp":
         return False
 
     raw_message = getattr(event.message_obj, "raw_message", None)
-    return _raw_get(raw_message, "post_type") == "request"
+    return (
+        _raw_get(raw_message, "post_type") == "request"
+        and _raw_get(raw_message, "request_type") == "group"
+        and _raw_get(raw_message, "sub_type") == "add"
+    )
 
 
-class AiocqhttpRequestFilter(filter.CustomFilter):
+class GroupAddRequestFilter(filter.CustomFilter):
     def filter(self, event: AstrMessageEvent, cfg: AstrBotConfig) -> bool:
-        return _is_aiocqhttp_request(event)
+        return _is_group_add_request(event)
 
 
 @register(
@@ -119,13 +123,6 @@ class ApprovePlugin(Star):
                 "未在入群申请中找到 Minecraft 正版 ID，请填写正确的 Java 正版 ID 后重新申请。",
             )
         )
-        logger.info(
-            "[入群审批] 插件已启动: 目标群=%s 未填写ID时拒绝=%s 试运行=%s 查询超时=%.1fs",
-            "全部群" if not self.target_group_ids else ",".join(self.target_group_ids),
-            self.reject_when_no_username,
-            self.dry_run,
-            self.timeout_seconds,
-        )
 
     def _get_optional_str(self, key: str) -> str | None:
         value = self.config.get(key, "")
@@ -159,36 +156,18 @@ class ApprovePlugin(Star):
                 )
         return compiled
 
-    @filter.custom_filter(AiocqhttpRequestFilter, priority=100)
+    @filter.custom_filter(GroupAddRequestFilter, priority=100)
     async def handle_group_add_request(self, event: AstrMessageEvent) -> None:
         """Handle OneBot group join requests."""
         raw_message = getattr(event.message_obj, "raw_message", None)
-        request_type = str(_raw_get(raw_message, "request_type", "") or "")
-        sub_type = str(_raw_get(raw_message, "sub_type", "") or "")
         group_id = str(_raw_get(raw_message, "group_id", "") or "")
         user_id = str(_raw_get(raw_message, "user_id", "") or "")
         flag = str(_raw_get(raw_message, "flag", "") or "")
+        sub_type = str(_raw_get(raw_message, "sub_type", "add") or "add")
         comment = str(_raw_get(raw_message, "comment", "") or "")
 
-        if request_type != "group" or sub_type != "add":
-            logger.info(
-                "[入群审批] 收到非入群申请的 OneBot 请求事件，已忽略: 请求类型=%s 子类型=%s 群=%s 用户=%s",
-                request_type or "空",
-                sub_type or "空",
-                group_id or "空",
-                user_id or "空",
-            )
-            return
-
-        logger.info(
-            "[入群审批] 收到 QQ 群入群申请: 群=%s 用户=%s 申请信息=%r",
-            group_id,
-            user_id,
-            comment,
-        )
-
         if self.target_group_ids and group_id not in self.target_group_ids:
-            logger.info(
+            logger.debug(
                 "[入群审批] 忽略非目标群的入群申请: 群=%s 用户=%s",
                 group_id,
                 user_id,
@@ -209,17 +188,11 @@ class ApprovePlugin(Star):
                     flag=flag,
                     sub_type=sub_type,
                     reason=self.reject_reason_no_username,
-                    log_context=f"群={group_id} 用户={user_id} 原因=未填写ID",
+                    log_context=f"group={group_id} user={user_id} no_username",
                 )
             event.stop_event()
             return
 
-        logger.info(
-            "[入群审批] 开始查询 Minecraft 正版 ID: 群=%s 用户=%s ID=%s",
-            group_id,
-            user_id,
-            username,
-        )
         result = await self.lookup_username(username)
         if result.state == LookupState.NOT_FOUND:
             reason = self._format_reject_reason(username)
@@ -228,7 +201,7 @@ class ApprovePlugin(Star):
                 flag=flag,
                 sub_type=sub_type,
                 reason=reason,
-                log_context=f"群={group_id} 用户={user_id} ID={username}",
+                log_context=f"group={group_id} user={user_id} username={username}",
             )
         elif result.state == LookupState.EXISTS:
             logger.info(
