@@ -88,6 +88,30 @@
     "hint": "设置为 0 表示立即拒绝。",
     "default": 0.0
   },
+  "enable_set_group_card": {
+    "type": "bool",
+    "description": "入群后自动修改群名片",
+    "hint": "当插件在申请阶段查询到 Minecraft 正版 ID 存在，管理员手动同意后，会把新成员群名片改为该 ID。",
+    "default": true
+  },
+  "group_card_template": {
+    "type": "string",
+    "description": "群名片模板",
+    "hint": "可使用 {username}、{group_id}、{user_id}。默认只使用 Minecraft ID。",
+    "default": "{username}"
+  },
+  "card_delay_seconds": {
+    "type": "float",
+    "description": "修改群名片前延迟秒数",
+    "hint": "部分协议端在新成员刚进群时可能需要短暂等待，默认不延迟。",
+    "default": 0.0
+  },
+  "pending_card_ttl_hours": {
+    "type": "float",
+    "description": "待改群名片记录保留时间（小时）",
+    "hint": "申请通过校验但尚未入群时会临时记录 ID。设为 0 表示不过期。",
+    "default": 24.0
+  },
   "dry_run": {
     "type": "bool",
     "description": "试运行模式",

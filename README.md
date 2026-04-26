@@ -10,6 +10,7 @@
 - 查询接口超时、限流或异常：不做动作，避免误拒。
 - ID 不存在：自动拒绝，并返回配置的拒绝理由。
 - 未填写或无法提取 ID：默认自动拒绝，可在配置中关闭。
+- ID 存在且管理员手动同意入群后：默认把新成员群名片改为申请中的 Minecraft ID。
 
 ## 配置
 
@@ -19,6 +20,8 @@
 - `username_patterns`：从验证信息中提取 ID 的正则表达式。
 - `reject_when_no_username`：无法提取 ID 时是否拒绝。
 - `reject_reason_not_found`：ID 不存在时的拒绝理由，可使用 `{username}`。
+- `enable_set_group_card`：入群后是否自动修改群名片。
+- `group_card_template`：群名片模板，可使用 `{username}`、`{group_id}`、`{user_id}`。
 - `dry_run`：试运行模式，只记录日志不实际拒绝。
 
 ## 申请信息示例
@@ -33,5 +36,5 @@ Steve
 ## 注意事项
 
 - 仅支持 OneBot v11 / `aiocqhttp` 适配器。
-- 机器人账号需要在目标 QQ 群拥有处理入群申请的权限。
+- 机器人账号需要在目标 QQ 群拥有处理入群申请、修改群名片的权限。
 - 如果 AstrBot 开启了会话白名单，请将目标群号加入白名单。
