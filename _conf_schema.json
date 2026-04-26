@@ -74,13 +74,13 @@
   "reject_reason_no_username": {
     "type": "string",
     "description": "未填写 ID 的拒绝理由",
-    "default": "未在入群申请中找到 Minecraft 正版 ID，请填写正确的 Java 正版 ID 后重新申请。"
+    "default": "未找到您的 ID，请只填写正版 ID 后重试。"
   },
   "reject_reason_not_found": {
     "type": "string",
     "description": "ID 不存在时的拒绝理由",
     "hint": "可使用 {username} 作为申请中提取到的 ID。",
-    "default": "未查询到 Minecraft 正版 ID：{username}。请检查正版 ID 是否正确后重新申请。"
+    "default": "未查询到 ID：{username}，请检查后重试。"
   },
   "delay_seconds": {
     "type": "float",

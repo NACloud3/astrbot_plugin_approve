@@ -134,13 +134,13 @@ class ApprovePlugin(Star):
         self.reject_reason_not_found = str(
             self.config.get(
                 "reject_reason_not_found",
-                "未查询到 Minecraft 正版 ID：{username}。请检查正版 ID 是否正确后重新申请。",
+                "未查询到 ID：{username}，请检查后重试。",
             )
         )
         self.reject_reason_no_username = str(
             self.config.get(
                 "reject_reason_no_username",
-                "未在入群申请中找到 Minecraft 正版 ID，请填写正确的 Java 正版 ID 后重新申请。",
+                "未找到您的 ID，请只填写正版 ID 后重试。",
             )
         )
         self.enable_set_group_card = bool(
