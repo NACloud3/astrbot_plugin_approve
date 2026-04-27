@@ -14,6 +14,12 @@
     "hint": "使用 {username} 作为 ID 占位符。默认使用 Mojang Username -> UUID 接口。",
     "default": "https://api.mojang.com/users/profiles/minecraft/{username}"
   },
+  "uuid_lookup_url_template": {
+    "type": "string",
+    "description": "Minecraft UUID 回退查询接口",
+    "hint": "使用 {uuid} 作为去除短横线后的 UUID 占位符。仅在 ID 查询未命中且申请答案像 UUID 时使用。",
+    "default": "https://api.minecraftservices.com/minecraft/profile/lookup/{uuid}"
+  },
   "timeout_seconds": {
     "type": "float",
     "description": "查询超时时间（秒）",
@@ -28,15 +34,15 @@
   },
   "reject_when_no_username": {
     "type": "bool",
-    "description": "申请答案不是完整 Minecraft ID 时自动拒绝",
-    "hint": "关闭后，申请答案不是完整 ID 时只记录日志，不做动作。",
+    "description": "申请答案不是完整 Minecraft ID 或 UUID 时自动拒绝",
+    "hint": "关闭后，申请答案不是完整 ID 或 UUID 时只记录日志，不做动作。",
     "default": true
   },
   "reject_reason": {
     "type": "string",
     "description": "拒绝理由",
-    "hint": "申请答案不是完整正版 ID，或查询不到该 ID 时使用。",
-    "default": "未查询到您的 ID，请确保只填写正版 ID 后重试。"
+    "hint": "申请答案不是完整正版 ID 或 UUID，或查询不到该 ID 时使用。",
+    "default": "未查询到您的 ID，请确保只填写正版 ID 或 UUID 后重试。"
   },
   "delay_seconds": {
     "type": "float",
@@ -47,7 +53,7 @@
   "enable_set_group_card": {
     "type": "bool",
     "description": "入群后自动修改群名片",
-    "hint": "当插件在申请阶段查询到 Minecraft 正版 ID 存在，管理员手动同意后，会把新成员群名片改为该 ID。",
+    "hint": "当插件在申请阶段查询到 Minecraft 正版 ID 或 UUID 存在，管理员手动同意后，会把新成员群名片改为该 ID。",
     "default": true
   },
   "group_card_template": {

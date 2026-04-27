@@ -19,8 +19,12 @@ from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 PLUGIN_NAME = "astrbot_plugin_approve"
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
+UUID_RE = re.compile(r"^[0-9A-Fa-f]{32}$")
 ANSWER_MARKERS = ("答案：", "答案:")
-DEFAULT_REJECT_REASON = "未查询到您的 ID，请确保只填写正版 ID 后重试。"
+DEFAULT_REJECT_REASON = "未查询到您的 ID，请确保只填写正版 ID 或 UUID 后重试。"
+DEFAULT_UUID_LOOKUP_URL_TEMPLATE = (
+    "https://api.minecraftservices.com/minecraft/profile/lookup/{uuid}"
+)
 
 
 class LookupState(str, Enum):
@@ -81,7 +85,7 @@ class GroupIncreaseNoticeFilter(filter.CustomFilter):
     PLUGIN_NAME,
     "NACloud3",
     "自动校验 Minecraft 正版 ID 并拒绝不符合条件的 QQ 入群申请",
-    "0.3.1",
+    "0.4.0",
 )
 class ApprovePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -91,6 +95,12 @@ class ApprovePlugin(Star):
             self.config.get(
                 "lookup_url_template",
                 "https://api.mojang.com/users/profiles/minecraft/{username}",
+            )
+        )
+        self.uuid_lookup_url_template = str(
+            self.config.get(
+                "uuid_lookup_url_template",
+                DEFAULT_UUID_LOOKUP_URL_TEMPLATE,
             )
         )
         self.timeout_seconds = float(self.config.get("timeout_seconds", 8.0))
@@ -163,10 +173,10 @@ class ApprovePlugin(Star):
             )
             return
 
-        username = self.extract_username(comment)
-        if username is None:
+        identifier = self.extract_identifier(comment)
+        if identifier is None:
             logger.info(
-                "[入群审批] 未在入群申请中找到 Minecraft 正版 ID: 群=%s 用户=%s 申请信息=%r",
+                "[入群审批] 未在入群申请中找到 Minecraft 正版 ID 或 UUID: 群=%s 用户=%s 申请信息=%r",
                 group_id,
                 user_id,
                 comment,
@@ -182,29 +192,29 @@ class ApprovePlugin(Star):
             event.stop_event()
             return
 
-        result = await self.lookup_username(username)
+        result = await self.lookup_identifier(identifier)
         if result.state == LookupState.NOT_FOUND:
             await self.reject_request(
                 event,
                 flag=flag,
                 sub_type=sub_type,
                 reason=self.reject_reason,
-                log_context=f"group={group_id} user={user_id} username={username}",
+                log_context=f"group={group_id} user={user_id} identifier={identifier}",
             )
         elif result.state == LookupState.EXISTS:
             logger.info(
                 "[入群审批] Minecraft 正版 ID 存在，不做处理: 群=%s 用户=%s ID=%s",
                 group_id,
                 user_id,
-                username,
+                result.username,
             )
-            self.store_pending_card(group_id, user_id, username)
+            self.store_pending_card(group_id, user_id, result.username)
         else:
             logger.warning(
-                "[入群审批] Minecraft 正版 ID 查询失败，不做处理: 群=%s 用户=%s ID=%s 状态码=%s 详情=%s",
+                "[入群审批] Minecraft 正版 ID 查询失败，不做处理: 群=%s 用户=%s 输入=%s 状态码=%s 详情=%s",
                 group_id,
                 user_id,
-                username,
+                identifier,
                 result.status_code,
                 result.detail,
             )
@@ -240,9 +250,16 @@ class ApprovePlugin(Star):
             log_context=f"group={group_id} user={user_id} username={username}",
         )
 
-    def extract_username(self, comment: str) -> str | None:
+    def extract_identifier(self, comment: str) -> str | None:
         text = self.extract_answer(comment)
-        return text if USERNAME_RE.fullmatch(text) else None
+        if USERNAME_RE.fullmatch(text):
+            return text
+        if self.normalize_uuid(text):
+            return text
+        return None
+
+    def extract_username(self, comment: str) -> str | None:
+        return self.extract_identifier(comment)
 
     @staticmethod
     def extract_answer(comment: str) -> str:
@@ -257,6 +274,23 @@ class ApprovePlugin(Star):
                     return line[len(marker) :].strip()
 
         return text
+
+    async def lookup_identifier(self, identifier: str) -> LookupResult:
+        result = await self.lookup_username(identifier)
+        uuid = self.normalize_uuid(identifier)
+        if uuid is None:
+            return result
+        if result.state not in {LookupState.NOT_FOUND, LookupState.ERROR}:
+            return result
+
+        uuid_result = await self.lookup_uuid(uuid)
+        if uuid_result.state == LookupState.EXISTS:
+            logger.info(
+                "[入群审批] 已通过 UUID 回退查询到 Minecraft 正版 ID: UUID=%s ID=%s",
+                uuid,
+                uuid_result.username,
+            )
+        return uuid_result
 
     async def lookup_username(self, username: str) -> LookupResult:
         try:
@@ -283,7 +317,11 @@ class ApprovePlugin(Star):
             )
 
         if response.status_code == 200:
-            return LookupResult(LookupState.EXISTS, username, response.status_code)
+            return LookupResult(
+                LookupState.EXISTS,
+                self.profile_name_from_response(response) or username,
+                response.status_code,
+            )
         if response.status_code == 204:
             return LookupResult(LookupState.NOT_FOUND, username, response.status_code)
         if response.status_code in {400, 404}:
@@ -295,6 +333,72 @@ class ApprovePlugin(Star):
             status_code=response.status_code,
             detail=response.text[:200],
         )
+
+    async def lookup_uuid(self, uuid: str) -> LookupResult:
+        try:
+            url = self.uuid_lookup_url_template.format(uuid=uuid)
+        except Exception as exc:
+            return LookupResult(
+                state=LookupState.ERROR,
+                username=uuid,
+                detail=f"UUID 查询接口模板无效: {exc}",
+            )
+
+        try:
+            async with httpx.AsyncClient(
+                proxy=self.proxy,
+                timeout=self.timeout_seconds,
+                follow_redirects=True,
+            ) as client:
+                response = await client.get(url)
+        except Exception as exc:
+            return LookupResult(
+                state=LookupState.ERROR,
+                username=uuid,
+                detail=f"{type(exc).__name__}: {exc}",
+            )
+
+        if response.status_code == 200:
+            username = self.profile_name_from_response(response)
+            if username:
+                return LookupResult(LookupState.EXISTS, username, response.status_code)
+            return LookupResult(
+                state=LookupState.ERROR,
+                username=uuid,
+                status_code=response.status_code,
+                detail="UUID 查询响应缺少有效玩家名",
+            )
+        if response.status_code == 204:
+            return LookupResult(LookupState.NOT_FOUND, uuid, response.status_code)
+        if response.status_code in {400, 404}:
+            return LookupResult(LookupState.NOT_FOUND, uuid, response.status_code)
+
+        return LookupResult(
+            state=LookupState.ERROR,
+            username=uuid,
+            status_code=response.status_code,
+            detail=response.text[:200],
+        )
+
+    @staticmethod
+    def normalize_uuid(identifier: str) -> str | None:
+        uuid = identifier.replace("-", "")
+        return uuid if UUID_RE.fullmatch(uuid) else None
+
+    @staticmethod
+    def profile_name_from_response(response: httpx.Response) -> str | None:
+        try:
+            data = response.json()
+        except ValueError:
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        username = data.get("name")
+        if isinstance(username, str) and USERNAME_RE.fullmatch(username):
+            return username
+        return None
 
     def _load_pending_cards(self) -> None:
         if not self._pending_cards_path.exists():
