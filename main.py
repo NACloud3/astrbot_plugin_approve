@@ -22,8 +22,8 @@ USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
 USERNAME_TOKEN_RE = re.compile(r"\b[A-Za-z0-9_]{3,16}\b")
 
 DEFAULT_USERNAME_PATTERNS = [
-    r"(?:正版\s*)?(?:mc|minecraft|java)?\s*(?:id|用户名|名称|名字|名)\s*(?:是|为)?\s*[:：= -]*\s*([A-Za-z0-9_]{3,16})",
-    r"(?:mc|minecraft|java)\s*正版\s*(?:id|用户名|名称|名字|名)\s*(?:是|为)?\s*[:：= -]*\s*([A-Za-z0-9_]{3,16})",
+    r"(?<![A-Za-z0-9_])(?:正版\s*)?(?:mc|minecraft|java)?\s*(?:id|用户名|名称|名字|名)\s*(?:是|为|[:：= -]+)\s*([A-Za-z0-9_]{3,16})(?![A-Za-z0-9_])",
+    r"(?<![A-Za-z0-9_])(?:mc|minecraft|java)\s*正版\s*(?:id|用户名|名称|名字|名)\s*(?:是|为|[:：= -]+)\s*([A-Za-z0-9_]{3,16})(?![A-Za-z0-9_])",
     r"(?:我的|我叫|我是)\s*([A-Za-z0-9_]{3,16})",
 ]
 DEFAULT_EXCLUDED_FALLBACK_WORDS = [
@@ -98,7 +98,7 @@ class GroupIncreaseNoticeFilter(filter.CustomFilter):
     PLUGIN_NAME,
     "NACloud3",
     "自动校验 Minecraft 正版 ID 并拒绝不符合条件的 QQ 入群申请",
-    "0.2.0",
+    "0.2.1",
 )
 class ApprovePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -325,14 +325,38 @@ class ApprovePlugin(Star):
 
     def _candidate_from_match(self, match: re.Match[str]) -> str | None:
         candidate = None
+        group_ref: str | int = 1
         if "username" in match.re.groupindex:
+            group_ref = "username"
             candidate = match.group("username")
         elif match.groups():
             candidate = match.group(1)
 
         if candidate and USERNAME_RE.fullmatch(candidate):
+            if self._is_embedded_username_match(match, group_ref):
+                return None
             return candidate
         return None
+
+    @staticmethod
+    def _is_username_char(char: str) -> bool:
+        return bool(char and re.fullmatch(r"[A-Za-z0-9_]", char))
+
+    def _is_embedded_username_match(
+        self,
+        match: re.Match[str],
+        group_ref: str | int,
+    ) -> bool:
+        text = match.string
+        if match.start() > 0 and self._is_username_char(text[match.start() - 1]):
+            return True
+
+        candidate_start = match.start(group_ref)
+        if candidate_start > 0 and self._is_username_char(text[candidate_start - 1]):
+            return True
+
+        candidate_end = match.end(group_ref)
+        return candidate_end < len(text) and self._is_username_char(text[candidate_end])
 
     async def lookup_username(self, username: str) -> LookupResult:
         try:
