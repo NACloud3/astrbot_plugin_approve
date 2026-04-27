@@ -17,7 +17,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
 from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
-PLUGIN_NAME = "astrbot_plugin_approve"
+PLUGIN_NAME = "astrbot_plugin_minecraft_join_verify"
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
 UUID_RE = re.compile(r"^[0-9A-Fa-f]{32}$")
 ANSWER_MARKERS = ("答案：", "答案:")
