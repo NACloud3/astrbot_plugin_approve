@@ -84,8 +84,8 @@ class GroupIncreaseNoticeFilter(filter.CustomFilter):
 @register(
     PLUGIN_NAME,
     "NACloud3",
-    "自动校验 Minecraft 正版 ID 并拒绝不符合条件的 QQ 入群申请",
-    "0.4.0",
+    "自动校验 Minecraft 正版 ID 并按配置处理 QQ 入群申请",
+    "0.5.0",
 )
 class ApprovePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -106,9 +106,8 @@ class ApprovePlugin(Star):
         self.timeout_seconds = float(self.config.get("timeout_seconds", 8.0))
         self.proxy = self._get_optional_str("proxy")
         self.target_group_ids = set(self._get_str_list("target_group_ids"))
-        self.reject_when_no_username = bool(
-            self.config.get("reject_when_no_username", True)
-        )
+        self.auto_approve = bool(self.config.get("auto_approve", True))
+        self.auto_reject = bool(self.config.get("auto_reject", False))
         self.delay_seconds = max(0.0, float(self.config.get("delay_seconds", 0)))
         self.dry_run = bool(self.config.get("dry_run", False))
         self.reject_reason = str(
@@ -181,7 +180,7 @@ class ApprovePlugin(Star):
                 user_id,
                 comment,
             )
-            if self.reject_when_no_username:
+            if self.auto_reject:
                 await self.reject_request(
                     event,
                     flag=flag,
@@ -189,26 +188,54 @@ class ApprovePlugin(Star):
                     reason=self.reject_reason,
                     log_context=f"group={group_id} user={user_id} no_username",
                 )
+            else:
+                logger.info(
+                    "[入群审批] 自动拒绝已关闭，不处理格式不完整的入群申请: 群=%s 用户=%s",
+                    group_id,
+                    user_id,
+                )
             event.stop_event()
             return
 
         result = await self.lookup_identifier(identifier)
         if result.state == LookupState.NOT_FOUND:
-            await self.reject_request(
-                event,
-                flag=flag,
-                sub_type=sub_type,
-                reason=self.reject_reason,
-                log_context=f"group={group_id} user={user_id} identifier={identifier}",
-            )
+            if self.auto_reject:
+                await self.reject_request(
+                    event,
+                    flag=flag,
+                    sub_type=sub_type,
+                    reason=self.reject_reason,
+                    log_context=f"group={group_id} user={user_id} identifier={identifier}",
+                )
+            else:
+                logger.info(
+                    "[入群审批] 自动拒绝已关闭，不处理未查询到 ID 的入群申请: 群=%s 用户=%s 输入=%s",
+                    group_id,
+                    user_id,
+                    identifier,
+                )
         elif result.state == LookupState.EXISTS:
             logger.info(
-                "[入群审批] Minecraft 正版 ID 存在，不做处理: 群=%s 用户=%s ID=%s",
+                "[入群审批] Minecraft 正版 ID 存在: 群=%s 用户=%s ID=%s",
                 group_id,
                 user_id,
                 result.username,
             )
             self.store_pending_card(group_id, user_id, result.username)
+            if self.auto_approve:
+                await self.approve_request(
+                    event,
+                    flag=flag,
+                    sub_type=sub_type,
+                    log_context=f"group={group_id} user={user_id} username={result.username}",
+                )
+            else:
+                logger.info(
+                    "[入群审批] 自动同意已关闭，保留给管理员手动处理: 群=%s 用户=%s ID=%s",
+                    group_id,
+                    user_id,
+                    result.username,
+                )
         else:
             logger.warning(
                 "[入群审批] Minecraft 正版 ID 查询失败，不做处理: 群=%s 用户=%s 输入=%s 状态码=%s 详情=%s",
@@ -503,6 +530,48 @@ class ApprovePlugin(Star):
         except Exception as exc:
             logger.warning("[入群审批] 群名片模板无效: %s", exc)
             return username
+
+    async def approve_request(
+        self,
+        event: AstrMessageEvent,
+        *,
+        flag: str,
+        sub_type: str,
+        log_context: str,
+    ) -> bool:
+        if self.dry_run:
+            logger.info("[入群审批] 试运行模式，模拟同意申请: %s", log_context)
+            return True
+
+        if not flag:
+            logger.warning(
+                "[入群审批] 缺少申请 flag，无法同意入群申请: %s", log_context
+            )
+            return False
+
+        bot = getattr(event, "bot", None)
+        if bot is None:
+            logger.warning("[入群审批] 缺少 aiocqhttp bot 实例，无法同意入群申请")
+            return False
+
+        payload = {
+            "flag": flag,
+            "sub_type": sub_type or "add",
+            "approve": True,
+        }
+
+        try:
+            await self.call_onebot_action(event, "set_group_add_request", payload)
+        except Exception as exc:
+            logger.error(
+                "[入群审批] 同意入群申请失败: %s 错误=%s",
+                log_context,
+                exc,
+            )
+            return False
+
+        logger.info("[入群审批] 已同意入群申请: %s", log_context)
+        return True
 
     async def reject_request(
         self,

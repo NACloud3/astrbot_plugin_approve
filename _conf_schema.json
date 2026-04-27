@@ -8,6 +8,18 @@
       "type": "string"
     }
   },
+  "auto_approve": {
+    "type": "bool",
+    "description": "验证通过时自动同意",
+    "hint": "开启后，申请答案对应的正版 ID 或 UUID 存在时会自动同意入群。",
+    "default": true
+  },
+  "auto_reject": {
+    "type": "bool",
+    "description": "验证不通过时自动拒绝",
+    "hint": "开启后，申请答案格式不完整或查询不到正版 ID 时会自动拒绝。默认关闭，避免误拒。",
+    "default": false
+  },
   "lookup_url_template": {
     "type": "string",
     "description": "Minecraft 正版 ID 查询接口",
@@ -32,22 +44,16 @@
     "hint": "如 http://127.0.0.1:7890；不需要代理请留空。",
     "default": ""
   },
-  "reject_when_no_username": {
-    "type": "bool",
-    "description": "申请答案不是完整 Minecraft ID 或 UUID 时自动拒绝",
-    "hint": "关闭后，申请答案不是完整 ID 或 UUID 时只记录日志，不做动作。",
-    "default": true
-  },
   "reject_reason": {
     "type": "string",
     "description": "拒绝理由",
-    "hint": "申请答案不是完整正版 ID 或 UUID，或查询不到该 ID 时使用。",
+    "hint": "仅在开启自动拒绝时使用。申请答案不是完整正版 ID 或 UUID，或查询不到该 ID 时使用。",
     "default": "未查询到您的 ID，请确保只填写正版 ID 或 UUID 后重试。"
   },
   "delay_seconds": {
     "type": "float",
     "description": "自动拒绝前延迟秒数",
-    "hint": "设置为 0 表示立即拒绝。",
+    "hint": "仅在开启自动拒绝时生效。设置为 0 表示立即拒绝。",
     "default": 0.0
   },
   "enable_set_group_card": {

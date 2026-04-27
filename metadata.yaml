@@ -1,7 +1,7 @@
 name: astrbot_plugin_approve
 display_name: Minecraft 入群正版验证
-desc: 自动校验 QQ 入群申请中的 Minecraft 正版 ID 或 UUID，仅拒绝不存在或申请答案格式不完整的申请。
-version: v0.4.0
+desc: 自动校验 QQ 入群申请中的 Minecraft 正版 ID 或 UUID，并按配置自动同意或拒绝。
+version: v0.5.0
 author: NACloud3
 repo: https://github.com/NACloud3/astrbot_plugin_approve
 support_platforms:
