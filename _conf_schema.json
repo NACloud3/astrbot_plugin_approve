@@ -26,61 +26,17 @@
     "hint": "如 http://127.0.0.1:7890；不需要代理请留空。",
     "default": ""
   },
-  "username_patterns": {
-    "type": "list",
-    "description": "从申请信息提取 Minecraft ID 的正则",
-    "hint": "按顺序匹配。正则应提供第一个捕获组，或命名捕获组 (?P<username>...)。",
-    "default": [
-      "(?<![A-Za-z0-9_])(?:正版\\s*)?(?:mc|minecraft|java)?\\s*(?:id|用户名|名称|名字|名)\\s*(?:是|为|[:：= -]+)\\s*([A-Za-z0-9_]{3,16})(?![A-Za-z0-9_])",
-      "(?<![A-Za-z0-9_])(?:mc|minecraft|java)\\s*正版\\s*(?:id|用户名|名称|名字|名)\\s*(?:是|为|[:：= -]+)\\s*([A-Za-z0-9_]{3,16})(?![A-Za-z0-9_])",
-      "(?:我的|我叫|我是)\\s*([A-Za-z0-9_]{3,16})"
-    ],
-    "items": {
-      "type": "string"
-    }
-  },
-  "fallback_plain_username": {
-    "type": "bool",
-    "description": "允许从纯文本中兜底提取唯一 ID",
-    "hint": "当正则未命中时，如果整条申请就是一个合法 ID，或文本里只有一个合法 ID 片段，则使用它。",
-    "default": true
-  },
-  "excluded_fallback_words": {
-    "type": "list",
-    "description": "兜底提取时忽略的英文词",
-    "hint": "用于避免把 Minecraft、Java 等说明文字误当成 ID。",
-    "default": [
-      "minecraft",
-      "mojang",
-      "java",
-      "bedrock",
-      "xbox",
-      "live",
-      "username",
-      "name",
-      "server",
-      "hypixel"
-    ],
-    "items": {
-      "type": "string"
-    }
-  },
   "reject_when_no_username": {
     "type": "bool",
-    "description": "未提取到 Minecraft ID 时自动拒绝",
-    "hint": "关闭后，无法提取 ID 的申请只记录日志，不做动作。",
+    "description": "申请内容不是完整 Minecraft ID 时自动拒绝",
+    "hint": "关闭后，申请内容不是完整 ID 时只记录日志，不做动作。",
     "default": true
   },
-  "reject_reason_no_username": {
+  "reject_reason": {
     "type": "string",
-    "description": "未填写 ID 的拒绝理由",
-    "default": "未找到您的 ID，请只填写正版 ID 后重试。"
-  },
-  "reject_reason_not_found": {
-    "type": "string",
-    "description": "ID 不存在时的拒绝理由",
-    "hint": "可使用 {username} 作为申请中提取到的 ID。",
-    "default": "未查询到 ID：{username}，请检查后重试。"
+    "description": "拒绝理由",
+    "hint": "申请信息不是完整正版 ID，或查询不到该 ID 时使用。",
+    "default": "未查询到您的 ID，请确保只填写正版 ID 后重试。"
   },
   "delay_seconds": {
     "type": "float",
