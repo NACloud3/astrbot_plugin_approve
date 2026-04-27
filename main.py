@@ -19,6 +19,7 @@ from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 PLUGIN_NAME = "astrbot_plugin_approve"
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
+ANSWER_MARKERS = ("答案：", "答案:")
 DEFAULT_REJECT_REASON = "未查询到您的 ID，请确保只填写正版 ID 后重试。"
 
 
@@ -80,7 +81,7 @@ class GroupIncreaseNoticeFilter(filter.CustomFilter):
     PLUGIN_NAME,
     "NACloud3",
     "自动校验 Minecraft 正版 ID 并拒绝不符合条件的 QQ 入群申请",
-    "0.3.0",
+    "0.3.1",
 )
 class ApprovePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -240,8 +241,22 @@ class ApprovePlugin(Star):
         )
 
     def extract_username(self, comment: str) -> str | None:
-        text = comment.strip()
+        text = self.extract_answer(comment)
         return text if USERNAME_RE.fullmatch(text) else None
+
+    @staticmethod
+    def extract_answer(comment: str) -> str:
+        text = comment.strip()
+        if not text:
+            return ""
+
+        for line in reversed(text.splitlines()):
+            line = line.strip()
+            for marker in ANSWER_MARKERS:
+                if line.startswith(marker):
+                    return line[len(marker) :].strip()
+
+        return text
 
     async def lookup_username(self, username: str) -> LookupResult:
         try:

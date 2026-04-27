@@ -28,14 +28,14 @@
   },
   "reject_when_no_username": {
     "type": "bool",
-    "description": "申请内容不是完整 Minecraft ID 时自动拒绝",
-    "hint": "关闭后，申请内容不是完整 ID 时只记录日志，不做动作。",
+    "description": "申请答案不是完整 Minecraft ID 时自动拒绝",
+    "hint": "关闭后，申请答案不是完整 ID 时只记录日志，不做动作。",
     "default": true
   },
   "reject_reason": {
     "type": "string",
     "description": "拒绝理由",
-    "hint": "申请信息不是完整正版 ID，或查询不到该 ID 时使用。",
+    "hint": "申请答案不是完整正版 ID，或查询不到该 ID 时使用。",
     "default": "未查询到您的 ID，请确保只填写正版 ID 后重试。"
   },
   "delay_seconds": {
